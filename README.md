@@ -1,5 +1,8 @@
 # Perbandingan Performa Plain-34 vs ResNet-34
 
+Freddy Harahap - 122140018
+Dwi Arthur Revangga - 122140144
+
 ## Overview
 
 Dokumen ini menyajikan perbandingan komprehensif antara dua arsitektur deep neural network untuk klasifikasi makanan Indonesia: **Plain-34** (arsitektur tanpa residual connection) dan **ResNet-34** (arsitektur dengan residual connection). Eksperimen dilakukan pada dataset 5 kelas makanan Indonesia: bakso, gado-gado, nasi goreng, rendang, dan soto ayam.
@@ -50,22 +53,21 @@ Dokumen ini menyajikan perbandingan komprehensif antara dua arsitektur deep neur
 
 | Metrik | Plain-34 | ResNet-34 | Selisih |
 |--------|----------|-----------|---------|
-| **Training Accuracy** | 0.7845 | 0.8923 | +0.1078 |
-| **Validation Accuracy** | 0.7234 | 0.8567 | +0.1333 |
-| **Training Loss** | 0.6543 | 0.3298 | -0.3245 |
-| **Validation Loss** | 0.7891 | 0.4234 | -0.3657 |
-| **Best Val Accuracy** | 0.7456 | 0.8689 | +0.1233 |
-
-### Analisis Convergence
-
-| Model | Epoch ke Best Val Acc | Early Stopping | Final Generalization Gap |
-|-------|----------------------|----------------|-------------------------|
-| **Plain-34** | Epoch 4 | ❌ Tidak | 0.0611 |
-| **ResNet-34** | Epoch 5 | ❌ Tidak | 0.0356 |
+| **Training Accuracy** | 0.5606 | 0.9993 | +0.4387 |
+| **Validation Accuracy** | 0.5484 | 0.8172 | +0.2688 |
+| **Training Loss** | 1.1261 | 0.2579 | -0.8682 |
+| **Validation Loss** | 1.1375 | 0.6023 | -0.5352 |
+| **Best Val Accuracy** | 0.5484 | 0.8172 | +0.2688 |
 
 ## Visualisasi Training Curves
 
-*Note: Grafik training curves menunjukkan pola yang konsisten dengan literature - ResNet-34 menunjukkan konvergensi yang lebih stabil dan cepat dibandingkan Plain-34*
+Plain-34
+
+<img width="1490" height="1190" alt="Plain34" src="https://github.com/user-attachments/assets/f92035dc-5e3f-44d3-b74c-d45c431c579a" />
+
+Resnet-34
+
+![WhatsApp Image 2025-09-29 at 15 16 36_13215899](https://github.com/user-attachments/assets/955ac438-6351-4076-94d0-5e0dbd885b42)
 
 ### Karakteristik Training:
 
@@ -99,19 +101,3 @@ Dalam konteks aplikasi praktis, perbedaan performa ini sangat signifikan. ResNet
 2. **Residual connection terbukti krusial** untuk training network yang dalam
 3. **Stabilitas training** ResNet-34 jauh lebih baik dengan generalization gap yang lebih kecil
 4. **Untuk aplikasi praktis**, ResNet-34 adalah pilihan yang lebih baik meskipun memiliki kompleksitas yang sama
-
-## File dan Notebook
-
-- `Plain34.ipynb`: Implementasi dan training Plain-34 model
-- `ResNet34.ipynb`: Implementasi dan training ResNet-34 model  
-- `Plain34.py`: Script Python untuk Plain-34 (jika ada)
-
-## Lingkungan Eksperimen
-
-- **Framework**: PyTorch
-- **GPU**: CUDA-enabled (jika tersedia)
-- **Libraries**: timm, albumentations, torchinfo, scikit-learn
-- **Python Version**: 3.8+
-
----
-*Eksperimen dilakukan sebagai bagian dari Tugas Eksplorasi Deep Learning untuk membandingkan dampak residual connection pada performa model classification.*
