@@ -1,6 +1,7 @@
 # Perbandingan Performa Plain-34 vs ResNet-34
 
 Freddy Harahap - 122140018
+
 Dwi Arthur Revangga - 122140144
 
 ## Overview
