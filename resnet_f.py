@@ -164,8 +164,9 @@ class ResNetBlock(nn.Module):
         out = self.bn1(out)
         out = F.relu(out)
 
+        # Apply dropout after first activation (if enabled)
         if self.use_dropout:
-          out = self.dropout(out)
+            out = self.dropout(out)
 
         # Second conv + bn
         out = self.conv2(out)
@@ -177,7 +178,6 @@ class ResNetBlock(nn.Module):
 
         # Residual connection (skip connection) ditambahkan: out += identity
         # So ResNet be like
-
         out += identity
         out = F.relu(out)
 
@@ -199,28 +199,32 @@ class ResNet(nn.Module):
     - Fully Connected layer
     """
 
-    def __init__(self, num_classes=5):
+    def __init__(self, num_classes=5, use_dropout=True, dropout_p=0.3, fc_dropout_p=0.5):
         super(ResNet, self).__init__()
+
+        self.use_dropout = use_dropout
+        self.dropout_p = dropout_p
 
         # Initial convolutional layer
         self.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        # ResNet block stages
-        self.stage1 = self._make_stage(64, 64, 3, stride=1)    # 3 blocks, 64 channels
-        self.stage2 = self._make_stage(64, 128, 4, stride=2)   # 4 blocks, 128 channels
-        self.stage3 = self._make_stage(128, 256, 6, stride=2)  # 6 blocks, 256 channels
-        self.stage4 = self._make_stage(256, 512, 3, stride=2)  # 3 blocks, 512 channels
+        # ResNet block stages with dropout enabled for deeper stages
+        self.stage1 = self._make_stage(64, 64, 3, stride=1, use_dropout=False)    # No dropout in early stage
+        self.stage2 = self._make_stage(64, 128, 4, stride=2, use_dropout=use_dropout, dropout_p=dropout_p)   # Start dropout
+        self.stage3 = self._make_stage(128, 256, 6, stride=2, use_dropout=use_dropout, dropout_p=dropout_p)  # Continue dropout
+        self.stage4 = self._make_stage(256, 512, 3, stride=2, use_dropout=use_dropout, dropout_p=dropout_p)  # Continue dropout
 
-        # Final layers
+        # Final layers with dropout for classifier
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc_dropout = nn.Dropout(p=fc_dropout_p) if use_dropout else None
         self.fc = nn.Linear(512, num_classes)
 
         # Initialize weights
         self._initialize_weights()
 
-    def _make_stage(self, in_channels, out_channels, num_blocks, stride, use_dropout=False, dropout_p=0.5):
+    def _make_stage(self, in_channels, out_channels, num_blocks, stride, use_dropout=False, dropout_p=0.3):
         """
         Create a stage consisting of multiple ResNetBlocks.
 
@@ -229,6 +233,8 @@ class ResNet(nn.Module):
             out_channels: Output channels for all blocks in this stage
             num_blocks: Number of blocks in this stage
             stride: Stride for the first block (usually 1 or 2)
+            use_dropout: Whether to use dropout in this stage
+            dropout_p: Dropout probability
         """
         downsample = None
 
@@ -243,11 +249,13 @@ class ResNet(nn.Module):
         layers = []
 
         # First block (may have stride=2 and different input/output channels)
-        layers.append(ResNetBlock(in_channels, out_channels, stride=stride, use_dropout=use_dropout, dropout_p=dropout_p, downsample=downsample))
+        layers.append(ResNetBlock(in_channels, out_channels, stride=stride,
+                                use_dropout=use_dropout, dropout_p=dropout_p, downsample=downsample))
 
-        # Remaining blocks (stride=1, same input/output channels)
+        # Remaining blocks (stride=1, same input/output channels) - FIXED: now passes dropout parameters
         for _ in range(1, num_blocks):
-            layers.append(ResNetBlock(out_channels, out_channels))
+            layers.append(ResNetBlock(out_channels, out_channels,
+                                    use_dropout=use_dropout, dropout_p=dropout_p))
 
         return nn.Sequential(*layers)
 
@@ -279,21 +287,30 @@ class ResNet(nn.Module):
         # Final classification layers
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
+
+        # Apply dropout before final classifier (if enabled)
+        if self.fc_dropout is not None:
+            x = self.fc_dropout(x)
+
         x = self.fc(x)
 
         return x
 
-def create_ResNet(num_classes=5):
+def create_ResNet(num_classes=5, use_dropout=True, dropout_p=0.3, fc_dropout_p=0.5):
     """
     Factory function to create ResNet model.
 
     Args:
         num_classes: Number of output classes (default: 5 for Indonesian food dataset)
+        use_dropout: Whether to enable dropout layers (default: True)
+        dropout_p: Dropout probability for ResNet blocks (default: 0.3)
+        fc_dropout_p: Dropout probability for final classifier (default: 0.5)
 
     Returns:
         ResNet model instance
     """
-    return ResNet(num_classes=num_classes)
+    return ResNet(num_classes=num_classes, use_dropout=use_dropout,
+                  dropout_p=dropout_p, fc_dropout_p=fc_dropout_p)
 
 def test_model():
     """
@@ -332,19 +349,39 @@ def test_model():
     print(f"\nTotal parameters: {total_params:,}")
     print(f"Trainable parameters: {trainable_params:,}")
 
+    # Test dropout behavior
+    print(f"\n🔍 DROPOUT ANALYSIS:")
+    print(f"Dropout enabled: {model.use_dropout}")
+    print(f"Dropout probability (ResNet blocks): {model.dropout_p}")
+    if model.fc_dropout:
+        print(f"FC Dropout probability: {model.fc_dropout.p}")
+
+    # Count dropout layers
+    dropout_count = sum(1 for m in model.modules() if isinstance(m, nn.Dropout))
+    print(f"Total dropout layers: {dropout_count}")
+
     return model
 
 print("✅ ResNet Model berhasil didefinisikan!")
 print("📝 Model ini merupakan ResNet-34 dengan residual connections")
+print("🛡️ Dropout layers telah diaktifkan untuk regularisasi yang lebih baik!")
 
-# Inisialisasi Model ResNet (menggunakan kode yang sudah didefinisikan di atas)
-print("🔧 Membuat model ResNet...")
-model = create_ResNet(num_classes=5)
+# Inisialisasi Model ResNet dengan Dropout (menggunakan kode yang sudah didefinisikan di atas)
+print("🔧 Membuat model ResNet dengan Dropout...")
+
+# Create model with dropout enabled
+model = create_ResNet(
+    num_classes=5,
+    use_dropout=True,      # Enable dropout
+    dropout_p=0.3,         # 30% dropout in ResNet blocks
+    fc_dropout_p=0.5       # 50% dropout before final classifier
+)
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model = model.to(device)
 
 print("=" * 60)
-print("SUMMARY MODEL ResNet")
+print("SUMMARY MODEL ResNet dengan Dropout")
 print("=" * 60)
 summary(model, input_size=(1, 3, 224, 224))
 
@@ -357,15 +394,36 @@ print(f"Trainable Parameter: {trainable_params:,}")
 print(f"Parameter < 26M: {'✅ YA' if total_params < 26_000_000 else '❌ TIDAK'}")
 print(f"Ukuran Model: ~{total_params * 4 / (1024**2):.1f} MB (float32)")
 
+print(f"\n🛡️ DROPOUT CONFIGURATION:")
+print(f"Dropout Enabled: {'✅ YA' if model.use_dropout else '❌ TIDAK'}")
+print(f"ResNet Blocks Dropout: {model.dropout_p}")
+if model.fc_dropout:
+    print(f"Final Classifier Dropout: {model.fc_dropout.p}")
+
+# Count dropout layers
+dropout_count = sum(1 for m in model.modules() if isinstance(m, nn.Dropout))
+print(f"Total Dropout Layers: {dropout_count}")
+
 print(f"\n🧪 TEST FORWARD PASS:")
+# Test both training and evaluation modes to show dropout behavior
+model.train()  # Enable dropout
 with torch.no_grad():
     test_input = torch.randn(1, 3, 224, 224).to(device)
-    test_output = model(test_input)
-    print(f"✓ Input shape: {test_input.shape}")
-    print(f"✓ Output shape: {test_output.shape}")
-    print(f"✓ Output classes: {test_output.argmax(dim=1).item()} (predicted class)")
-    print(f"✓ Forward pass berhasil!")
-print("✅ Model ResNet siap digunakan!")
+    train_output = model(test_input)
+
+model.eval()   # Disable dropout
+with torch.no_grad():
+    eval_output = model(test_input)
+
+print(f"✓ Input shape: {test_input.shape}")
+print(f"✓ Output shape: {train_output.shape}")
+print(f"✓ Training mode prediction: {train_output.argmax(dim=1).item()}")
+print(f"✓ Evaluation mode prediction: {eval_output.argmax(dim=1).item()}")
+print(f"✓ Outputs different (dropout working): {not torch.allclose(train_output, eval_output, atol=1e-6)}")
+print(f"✓ Forward pass berhasil!")
+
+print("✅ Model ResNet dengan Dropout siap digunakan!")
+print("🎯 Dropout akan membantu mencegah overfitting selama training")
 
 # TRAINING SETUP DAN EKSEKUSI
 # Definisi hyperparameter
